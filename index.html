@@ -2,70 +2,104 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Мой профиль</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Монитор группы </title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f4f7f6; }
-        .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        button { padding: 10px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
-        .user-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
-        .status-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .card { background: white; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; width: 100%; max-width: 400px; margin-bottom: 20px; }
+        h3 { margin-top: 0; color: #1c1e21; font-size: 1.2rem; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; margin-bottom: 15px; }
+        #myInfo { font-weight: 500; color: #4b4f56; margin-bottom: 20px; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        button { 
+            border: none; border-radius: 10px; padding: 12px; color: white; 
+            font-weight: 600; cursor: pointer; transition: transform 0.1s, opacity 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem;
+        }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:active { transform: translateY(1px); }
+
+        .user-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f2f5; }
+        .user-item:last-child { border-bottom: none; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 15px; flex-shrink: 0; }
+        .user-info strong { display: block; color: #1c1e21; font-size: 1rem; }
+        .user-info small { color: #8d949e; font-size: 0.85rem; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h3>Мой профиль</h3>
-    <p id="myInfo">Загрузка...</p>
-    <div class="grid">
-        <button style="background: #28a745;" onclick="changeStatus('Учусь', '#28a745')">📚 Учусь</button>
-        <button style="background: #ffc107; color: black;" onclick="changeStatus('Кофе', '#ffc107')">☕ Кофе</button>
-        <button style="background: #17a2b8;" onclick="changeStatus('В игре', '#17a2b8')">🎮 В игре</button>
-        <button style="background: #6c757d;" onclick="changeStatus('Дома', '#6c757d')">🏠 Дома</button>
+    <div class="card">
+        <h3>Мой профиль</h3>
+        <div id="myInfo">Подключение к базе...</div>
+        <div class="grid">
+            <button style="background-color: #28a745;" onclick="changeStatus('📚 Учусь', '#28a745')">📚 Учусь</button>
+            <button style="background-color: #ffc107; color: #000;" onclick="changeStatus('☕ Кофе', '#ffc107')">☕ Кофе</button>
+            <button style="background-color: #17a2b8;" onclick="changeStatus('🎮 В игре', '#17a2b8')">🎮 В игре</button>
+            <button style="background-color: #6c757d;" onclick="changeStatus('🏠 Дома', '#6c757d')">🏠 Дома</button>
+        </div>
     </div>
-</div>
 
-<div class="card">
-    <h3>Монитор группы</h3>
-    <div id="groupList"></div>
-</div>
+    <div class="card">
+        <h3>Монитор группы</h3>
+        <div id="groupList"></div>
+    </div>
 
 <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
+    // Твои данные уже здесь
     const URL = 'https://mdkbkuffvgatlqauxpml.supabase.co';
+    const KEY = 'sb_publishable_FlSehNzF2mQ4DygdbbkoTQ_gThvpdt7';
+    const supabase = createClient(URL, KEY);
 
-  const KEY = sb_publishable_FlSehNzF2mQ4DygdbbkoTQ_gThvpdt7;
+    const MY_ID = '8b6425ac-6cdf-490f-914f-f4ed8de4ac8b';
 
-  const supabase = createClient(URL, KEY);
-
-
-  const MY_ID = '8b6425ac-6cdf-490f-914f-f4ed8de4ac8b';
 
     window.changeStatus = async (text, color) => {
-        await supabase.from('profiles').update({ status: text, color: color }).eq('id', MY_ID);
-        fetchGroup();
+        const { error } = await supabase
+            .from('profiles')
+            .update({ status: text, color: color })
+            .eq('id', MY_ID);
+
+        if (error) {
+            console.error("Ошибка:", error);
+            alert("Ошибка обновления! Проверьте RLS в Supabase.");
+        } else {
+            fetchGroup(); // Сразу обновляем список после нажатия
+        }
     };
 
+    // Функция получения списка всех пользователей
     async function fetchGroup() {
-        const { data } = await supabase.from('profiles').select('*').order('username');
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('username', { ascending: true });
+
+        if (error) {
+            console.error("Ошибка загрузки:", error);
+            return;
+        }
+
         const list = document.getElementById('groupList');
-        
         list.innerHTML = data.map(user => `
             <div class="user-item">
-                <div class="status-dot" style="background: ${user.color || '#ccc'}"></div>
-                <div>
-                    <strong>${user.username}</strong><br>
+                <div class="status-dot" style="background-color: ${user.color || '#ccc'}"></div>
+                <div class="user-info">
+                    <strong>${user.username}</strong>
                     <small>${user.status || 'Статус не задан'}</small>
                 </div>
             </div>
         `).join('');
 
         const me = data.find(u => u.id === MY_ID);
-        if (me) document.getElementById('myInfo').innerText = `Вы зашли как: ${me.username}`;
+        if (me) {
+            document.getElementById('myInfo').innerText = `Вы зашли как: ${me.username}`;
+        }
     }
 
     fetchGroup();
+
     setInterval(fetchGroup, 5000);
 </script>
 
