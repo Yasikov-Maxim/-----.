@@ -7,10 +7,7 @@
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .card { background: white; border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        button { 
-            padding: 12px; border: none; border-radius: 8px; cursor: pointer; color: white; 
-            font-weight: bold; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 5px;
-        }
+        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
         button:hover { opacity: 0.8; }
         .user-item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; }
@@ -20,8 +17,9 @@
 
     <div class="card">
         <h3 style="margin:0">Мой профиль</h3>
-        <p id="myInfo" style="margin: 10px 0;">Подключение...</p>
-        <div class="grid">
+        <p id="myInfo" style="margin: 10px 0;">Загрузка...</p>
+        <button id="authBtn" style="background: #4285F4; width: 100%;" onclick="toggleAuth()">Войти через Google</button>
+        <div class="grid" id="statusGrid" style="display:none;">
             <button style="background: #28a745;" onclick="changeStatus('📚 Учусь', '#28a745')">📚 Учусь</button>
             <button style="background: #ffc107; color: black;" onclick="changeStatus('☕ Кофе', '#ffc107')">☕ Кофе</button>
             <button style="background: #17a2b8;" onclick="changeStatus('🎮 В игре', '#17a2b8')">🎮 В игре</button>
@@ -40,45 +38,56 @@
     const URL = 'https://mdkbkuffvgatlqauxpml.supabase.co';
     const KEY = 'sb_publishable_FlSehNzF2mQ4DygdbbkoTQ_gThvpdt7';
     const supabase = createClient(URL, KEY);
-    const MY_ID = '8b6425ac-6cdf-490f-914f-f4ed8de4ac8b';
 
-    window.changeStatus = async (text, color) => {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ status: text, color: color })
-            .eq('id', MY_ID);
-
-        if (error) {
-            console.error("Ошибка обновления:", error);
-            alert("Ошибка! Проверьте, добавлена ли колонка 'color' в таблицу.");
+    // Функция входа/выхода
+    window.toggleAuth = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            await supabase.auth.signOut();
+            location.reload();
         } else {
-            fetchGroup();
+            await supabase.auth.signInWithOAuth({ provider: 'google' });
         }
     };
 
+    // Функция смены статуса
+    window.changeStatus = async (text, color) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return alert("Сначала войдите через Google!");
+        
+        await supabase.from('profiles')
+            .update({ status: text, color: color })
+            .eq('id', user.id);
+        fetchGroup();
+    };
+
+    // Обновление списка
     async function fetchGroup() {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .order('username');
-
+        const { data, error } = await supabase.from('profiles').select('*').order('username');
         if (error) return console.error(error);
-
-        const list = document.getElementById('groupList');
-        list.innerHTML = data.map(user => `
+        
+        document.getElementById('groupList').innerHTML = data.map(u => `
             <div class="user-item">
-                <div class="status-dot" style="background: ${user.color || '#ccc'}"></div>
-                <div>
-                    <strong>${user.username}</strong><br>
-                    <small style="color: #666;">${user.status || 'Нет статуса'}</small>
-                </div>
+                <div class="status-dot" style="background: ${u.color || '#ccc'}"></div>
+                <div><strong>${u.username}</strong><br><small>${u.status || 'Нет статуса'}</small></div>
             </div>
         `).join('');
-
-        const me = data.find(u => u.id === MY_ID);
-        if (me) document.getElementById('myInfo').innerText = `Вы зашли как: ${me.username}`;
     }
 
+    // Проверка состояния
+    async function checkUser() {
+        const { data: { user } } = await supabase.auth.getUser();
+        const btn = document.getElementById('authBtn');
+        const grid = document.getElementById('statusGrid');
+        if (user) {
+            btn.innerText = "Выйти";
+            btn.style.background = "#dc3545";
+            grid.style.display = "grid";
+            document.getElementById('myInfo').innerText = `Вы зашли как: ${user.email}`;
+        }
+    }
+
+    checkUser();
     fetchGroup();
     setInterval(fetchGroup, 5000);
 </script>
