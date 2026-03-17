@@ -5,38 +5,50 @@
     <title>Монитор группы PO232</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .card { background: white; border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; text-align: center; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: bold; transition: 0.2s; }
-        button:hover { opacity: 0.8; }
+        .card { background: white; border-radius: 20px; padding: 25px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; }
+        
+        /* Профиль */
+        .user-name { font-size: 20px; font-weight: bold; margin-bottom: 15px; display: block; }
+        .timer-main { font-size: 32px; color: #4285F4; font-weight: bold; margin: 15px 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        
+        .btn-main { background: #d93025; color: white; width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-sub { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; color: white; }
         
         /* Список группы */
-        .user-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; text-align: left; }
-        .u-info { display: flex; align-items: center; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; background: #ccc; transition: 0.3s; }
-        .online-glow { background: #28a745; box-shadow: 0 0 8px #28a745; }
+        .monitor-title { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 18px; margin-bottom: 20px; }
+        .user-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+        .u-info { display: flex; align-items: center; gap: 10px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; }
+        .online { background: #28a745; box-shadow: 0 0 8px #28a745; }
         
-        .time-badge { color: #4285F4; font-size: 12px; font-weight: bold; display: block; margin-top: 2px; }
-        .status-text { font-size: 13px; color: #666; }
+        .u-status { text-align: right; }
+        .status-label { font-size: 14px; color: #666; display: block; }
+        .status-time { font-size: 12px; color: #4285F4; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h3 id="myTitle" style="margin:0">Загрузка...</h3>
-        <p id="myInfo" style="margin: 10px 0; color: #666;">Пожалуйста, войдите</p>
-        <button id="authBtn" style="background: #4285F4; width: 100%;" onclick="toggleAuth()">Войти через Google</button>
+    <div class="card" id="authSection">
+        <button class="btn-main" style="background: #4285F4;" onclick="toggleAuth()">Войти через Google</button>
+    </div>
+
+    <div class="card" id="profileSection" style="display:none;">
+        <span class="user-name" id="userName">Загрузка...</span>
+        <div class="timer-main" id="mainTimer">
+            <span>⏱</span> <span id="timerText">0 сек.</span>
+        </div>
         
-        <div class="grid" id="statusGrid" style="display:none;">
-            <button style="background: #28a745;" onclick="changeStatus('📚 Учусь', '#28a745')">📚 Учусь</button>
-            <button style="background: #ffc107; color: black;" onclick="changeStatus('☕ Кофе', '#ffc107')">☕ Кофе</button>
-            <button style="background: #17a2b8;" onclick="changeStatus('🎮 В игре', '#17a2b8')">🎮 В игре</button>
-            <button style="background: #6c757d;" onclick="changeStatus('🏠 Дома', '#6c757d')">🏠 Дома</button>
+        <button class="btn-main" id="actionBtn" onclick="changeStatus('🏠 Дома', '#6c757d')">⛔ Завершить сессию</button>
+        
+        <div class="grid">
+            <button class="btn-sub" style="background: #f4b400;" onclick="changeStatus('☕ Перерыв', '#f4b400')">☕ Перерыв</button>
+            <button class="btn-sub" style="background: #5f6368;" onclick="toggleAuth()">Выход</button>
         </div>
     </div>
 
     <div class="card">
-        <h3 style="margin:0 0 10px 0">👥 Монитор группы</h3>
+        <div class="monitor-title">🎥 Монитор группы</div>
         <div id="groupList"></div>
     </div>
 
@@ -48,11 +60,12 @@
     const supabase = createClient(URL, KEY);
 
     const SITE_URL = 'https://yasikov-maxim.github.io/PO232/';
-    let currentUser = null;
+    let user = null;
 
+    // Вход/Выход
     window.toggleAuth = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
+        const { data } = await supabase.auth.getUser();
+        if (data.user) {
             await supabase.auth.signOut();
             location.reload();
         } else {
@@ -63,55 +76,48 @@
         }
     };
 
-    window.changeStatus = async (text, color) => {
-        if (!currentUser) return;
-        
-        // Если статус "Учусь", ставим метку времени, иначе стираем её
-        const isStudy = text.includes('Учусь');
-        
-        await supabase.from('profiles').update({ 
-            status: text, 
+    // Смена статуса
+    window.changeStatus = async (statusText, color) => {
+        const isStudy = statusText.includes('Учусь') || statusText === 'Завершить сессию';
+        const finalStatus = statusText === 'Завершить сессию' ? '🏠 Дома' : statusText;
+
+        await supabase.from('profiles').update({
+            status: finalStatus,
             color: color,
             last_seen: new Date().toISOString(),
-            study_started_at: isStudy ? new Date().toISOString() : null 
-        }).eq('id', currentUser.id);
-        
+            study_started_at: statusText.includes('Учусь') ? new Date().toISOString() : (statusText === '🏠 Дома' ? null : undefined)
+        }).eq('id', user.id);
         fetchGroup();
     };
 
     async function fetchGroup() {
-        const { data, error } = await supabase.from('profiles').select('*').order('username');
-        if (error || !data) return;
+        const { data } = await supabase.from('profiles').select('*').order('username');
+        if (!data) return;
 
         const list = document.getElementById('groupList');
         const now = new Date();
 
         list.innerHTML = data.map(u => {
-            // Проверка онлайн: разница между сейчас и last_seen < 60 секунд
-            const lastActive = new Date(u.last_seen);
-            const isOnline = (now - lastActive) < 60000;
-
-            // Расчет времени сессии
-            let sessionTime = "";
+            const isOnline = (now - new Date(u.last_seen)) < 60000;
+            let timeStr = "0ч 0м 0с";
+            
             if (u.study_started_at && u.status.includes('Учусь')) {
-                const start = new Date(u.study_started_at);
-                const diff = Math.floor((now - start) / 1000);
-                const m = Math.floor(diff / 60);
+                const diff = Math.floor((now - new Date(u.study_started_at)) / 1000);
+                const h = Math.floor(diff / 3600);
+                const m = Math.floor((diff % 3600) / 60);
                 const s = diff % 60;
-                sessionTime = `⏱ ${m}м ${s}с`;
+                timeStr = `${h}ч ${m}м ${s}с`;
             }
 
             return `
                 <div class="user-item">
                     <div class="u-info">
-                        <div class="status-dot ${isOnline ? 'online-glow' : ''}"></div>
-                        <div>
-                            <strong>${u.username || 'Аноним'}</strong>
-                        </div>
+                        <div class="status-dot ${isOnline ? 'online' : ''}"></div>
+                        <strong>${u.username || 'Аноним'}</strong>
                     </div>
-                    <div style="text-align: right;">
-                        <span class="status-text">${u.status || '🏠 Дома'}</span>
-                        <span class="time-badge">${sessionTime}</span>
+                    <div class="u-status">
+                        <span class="status-label">${u.status || '🏠 Дома'}</span>
+                        <span class="status-time">⏱ ${timeStr}</span>
                     </div>
                 </div>
             `;
@@ -119,32 +125,30 @@
     }
 
     async function checkUser() {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            currentUser = user;
+        const { data } = await supabase.auth.getUser();
+        if (data.user) {
+            user = data.user;
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('profileSection').style.display = 'block';
+            document.getElementById('userName').innerText = user.user_metadata.full_name;
+
+            // Создаем/обновляем профиль
             await supabase.from('profiles').upsert({
                 id: user.id,
-                username: user.user_metadata.full_name || user.email,
+                username: user.user_metadata.full_name,
                 last_seen: new Date().toISOString()
             });
 
-            document.getElementById('authBtn').innerText = "Выйти";
-            document.getElementById('authBtn').style.background = "#dc3545";
-            document.getElementById('statusGrid').style.display = "grid";
-            document.getElementById('myTitle').innerText = user.user_metadata.full_name || "Мой профиль";
-            document.getElementById('myInfo').innerText = "Статус обновляется автоматически";
-            
-            // "Сердцебиение" — обновляем время захода каждые 30 сек
+            // Авто-обновление "онлайн" статуса
             setInterval(() => {
-                supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', currentUser.id);
+                supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', user.id);
             }, 30000);
         }
     }
 
     checkUser();
     fetchGroup();
-    setInterval(fetchGroup, 3000); // Обновляем список каждые 3 сек для плавности таймера
+    setInterval(fetchGroup, 1000); // Обновляем каждую секунду для таймера
 </script>
-
 </body>
 </html>
