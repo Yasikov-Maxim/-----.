@@ -256,7 +256,7 @@ window.sendMsg = async () => {
 
 window.deleteMsg = async (id) => {
     if (!confirm("Удалить сообщение?")) return;
-    await supabase.from('messages').delete().eq('id', id).eq('user_id', currentUser.id);
+    await supabase.from('messages').delete().eq('id', id);
     loadChat();
 };
 
