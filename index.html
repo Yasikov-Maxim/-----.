@@ -37,9 +37,12 @@
         .chat-input { display: flex; gap: 5px; }
         input { flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
 
-        .msg { padding: 5px 10px; border-radius: 12px; max-width: 70%; }
-        .msg.me { background: #34a853; color: white; margin-left: auto; text-align: right; }
-        .msg.other { background: #e8f0fe; color: #1967d2; margin-right: auto; text-align: left; }
+        .msg { padding: 5px 10px; border-radius: 12px; max-width: 70%; word-wrap: break-word; }
+        /* Мои сообщения */
+        .msg.me { background: #34a853; color: white; align-self: flex-end; text-align: right; border-bottom-right-radius: 2px; }
+        /* Чужие сообщения */
+        .msg.other { background: #e8f0fe; color: #1967d2; align-self: flex-start; text-align: left; border-bottom-left-radius: 2px; }
+        .msg b { display: block; font-size: 10px; margin-bottom: 2px; }
     </style>
 </head>
 <body>
@@ -78,7 +81,7 @@
     <div class="monitor-header">💬 Общий чат</div>
     <div id="chatDisplay"></div>
     <div class="chat-input">
-        <input type="text" id="msgInput" placeholder="Написать...">
+        <input type="text" id="msgInput" placeholder="Написать..." onkeypress="if(event.key==='Enter') sendMsg()">
         <button style="width: 50px; background: #34a853; margin: 0;" onclick="sendMsg()">➤</button>
     </div>
 </div>
@@ -238,22 +241,32 @@ async function updateUI() {
     }).join('');
 }
 
+// ДОПОЛНЕННАЯ ФУНКЦИЯ ОТПРАВКИ
 window.sendMsg = async () => {
     const input = document.getElementById('msgInput');
     if (!input.value.trim() || !currentUser) return;
-    await supabase.from('messages').insert([{ text: input.value, user_name: currentUser.user_metadata.full_name }]);
+    
+    // Добавляем user_id, чтобы система знала автора
+    await supabase.from('messages').insert([{ 
+        text: input.value, 
+        user_name: currentUser.user_metadata.full_name,
+        user_id: currentUser.id 
+    }]);
+    
     input.value = '';
     await checkAwards('chat');
     loadChat();
 };
 
+// ДОПОЛНЕННАЯ ФУНКЦИЯ ЗАГРУЗКИ ЧАТА
 async function loadChat() {
     if(!currentUser) return;
     const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(15);
     const display = document.getElementById('chatDisplay');
     if (data && display) {
         display.innerHTML = data.reverse().map(m => {
-            const isMe = m.user_name === currentUser.user_metadata.full_name;
+            // Сравнение идет по user_id, а не по имени (так надежнее)
+            const isMe = m.user_id === currentUser.id;
             const nameDisplay = isMe ? "Вы" : m.user_name;
             return `<div class="msg ${isMe ? 'me' : 'other'}"><b>${nameDisplay}:</b> ${m.text}</div>`;
         }).join('');
