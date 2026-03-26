@@ -37,12 +37,17 @@
         .chat-input { display: flex; gap: 5px; }
         input { flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
 
-        .msg { padding: 5px 10px; border-radius: 12px; max-width: 70%; word-wrap: break-word; }
-        /* Мои сообщения */
-        .msg.me { background: #34a853; color: white; align-self: flex-end; text-align: right; border-bottom-right-radius: 2px; }
-        /* Чужие сообщения */
+        .msg { padding: 5px 10px; border-radius: 12px; max-width: 70%; word-wrap: break-word; position: relative; }
+        .msg.me { background: #34a853; color: white; align-self: flex-end; text-align: right; border-bottom-right-radius: 2px; padding-right: 25px; }
         .msg.other { background: #e8f0fe; color: #1967d2; align-self: flex-start; text-align: left; border-bottom-left-radius: 2px; }
         .msg b { display: block; font-size: 10px; margin-bottom: 2px; }
+
+        /* Кнопка удаления */
+        .del-btn { 
+            position: absolute; top: 2px; right: 5px; cursor: pointer; 
+            font-size: 12px; font-weight: bold; color: rgba(255,255,255,0.7); 
+        }
+        .del-btn:hover { color: #ff4d4d; }
     </style>
 </head>
 <body>
@@ -241,34 +246,37 @@ async function updateUI() {
     }).join('');
 }
 
-// ДОПОЛНЕННАЯ ФУНКЦИЯ ОТПРАВКИ
 window.sendMsg = async () => {
     const input = document.getElementById('msgInput');
     if (!input.value.trim() || !currentUser) return;
-    
-    // Добавляем user_id, чтобы система знала автора
     await supabase.from('messages').insert([{ 
         text: input.value, 
         user_name: currentUser.user_metadata.full_name,
         user_id: currentUser.id 
     }]);
-    
     input.value = '';
     await checkAwards('chat');
     loadChat();
 };
 
-// ДОПОЛНЕННАЯ ФУНКЦИЯ ЗАГРУЗКИ ЧАТА
+// НОВАЯ ФУНКЦИЯ УДАЛЕНИЯ
+window.deleteMsg = async (id) => {
+    if (!confirm("Удалить сообщение?")) return;
+    await supabase.from('messages').delete().eq('id', id).eq('user_id', currentUser.id);
+    loadChat();
+};
+
 async function loadChat() {
     if(!currentUser) return;
     const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(15);
     const display = document.getElementById('chatDisplay');
     if (data && display) {
         display.innerHTML = data.reverse().map(m => {
-            // Сравнение идет по user_id, а не по имени (так надежнее)
             const isMe = m.user_id === currentUser.id;
             const nameDisplay = isMe ? "Вы" : m.user_name;
-            return `<div class="msg ${isMe ? 'me' : 'other'}"><b>${nameDisplay}:</b> ${m.text}</div>`;
+            // Добавляем крестик только для своих сообщений
+            const delBtn = isMe ? `<span class="del-btn" onclick="deleteMsg('${m.id}')">×</span>` : "";
+            return `<div class="msg ${isMe ? 'me' : 'other'}">${delBtn}<b>${nameDisplay}:</b> ${m.text}</div>`;
         }).join('');
         display.scrollTop = display.scrollHeight;
     }
