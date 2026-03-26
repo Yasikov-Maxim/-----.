@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Монитор группы </title>
+    <title>Монитор группы</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; color: #1c1e21; }
         .card { background: white; border-radius: 20px; padding: 20px; width: 100%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 20px; box-sizing: border-box; }
-        
-        /* Авторизация и Профиль */
+
         h3 { margin-top: 0; text-align: center; font-size: 18px; }
         #userNameDisplay { font-size: 20px; font-weight: bold; margin-bottom: 15px; display: block; text-align: center; color: #4285F4; }
-        
-        /* Таймер и кнопки */
+
         .big-timer { font-size: 32px; font-weight: bold; color: #4285F4; display: flex; align-items: center; justify-content: center; gap: 10px; margin: 15px 0; }
         button { width: 100%; padding: 12px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 15px; transition: 0.2s; margin-bottom: 10px; color: white; }
         .btn-auth { background: #4285F4; }
@@ -21,19 +19,16 @@
         .btn-exit { background: #70757a; }
         .btn-start { background: #34a853; }
 
-        /* Списки и Рейтинг */
         .monitor-header { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 15px; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .user-row { padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
         .u-main { display: flex; justify-content: space-between; align-items: center; }
         .u-info { display: flex; align-items: center; gap: 10px; }
         .dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; }
         .online { background: #34a853; box-shadow: 0 0 8px #34a853; }
-        
-        /* Достижения */
+
         .achievements-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
         .badge { background: #e8f0fe; color: #1967d2; font-size: 10px; padding: 2px 8px; border-radius: 10px; border: 1px solid #d2e3fc; font-weight: bold; }
-        
-        /* Топ */
+
         .leader-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
         .rank { font-weight: bold; color: #fbbc04; width: 25px; display: inline-block; }
 
@@ -41,14 +36,17 @@
         #chatDisplay { height: 150px; overflow-y: auto; background: #f8f9fa; border-radius: 10px; padding: 10px; font-size: 14px; margin-bottom: 10px; border: 1px solid #eee; display: flex; flex-direction: column; gap: 5px; }
         .chat-input { display: flex; gap: 5px; }
         input { flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; }
-        .msg { background: white; padding: 5px 10px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
+        .msg { padding: 5px 10px; border-radius: 12px; max-width: 70%; }
+        .msg.me { background: #34a853; color: white; margin-left: auto; text-align: right; }
+        .msg.other { background: #e8f0fe; color: #1967d2; margin-right: auto; text-align: left; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h3 id="profileHeader">Монитор PO232</h3>
-    
+
     <div id="authSection">
         <p style="text-align:center; color:#666;">Пожалуйста, войдите, чтобы увидеть активность группы.</p>
         <button class="btn-auth" onclick="handleAuth()">Войти через Google</button>
@@ -102,7 +100,6 @@ const BADGES = {
     CHATTY: '💬 Активист'
 };
 
-// --- Авторизация ---
 window.handleAuth = async () => {
     const { data } = await supabase.auth.getUser();
     if (data?.user) {
@@ -116,7 +113,6 @@ window.handleAuth = async () => {
     }
 };
 
-// --- Система достижений ---
 async function checkAwards(type, val = 0) {
     if (!currentUser) return;
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
@@ -147,7 +143,6 @@ async function checkAwards(type, val = 0) {
     }
 }
 
-// --- Статусы ---
 window.changeStatus = async (text, color, isStudying) => {
     if (!currentUser) return;
     const now = new Date();
@@ -204,13 +199,11 @@ function formatTime(seconds) {
     return `${m}м ${seconds % 60}с`;
 }
 
-// --- Обновление интерфейса ---
 async function updateUI() {
     if(!currentUser) return;
     const { data: users } = await supabase.from('profiles').select('*').order('total_seconds', { ascending: false });
     if (!users) return;
 
-    // Рендер ТОПа
     document.getElementById('leaderboardList').innerHTML = users.slice(0, 5).map((u, i) => `
         <div class="leader-item">
             <span><span class="rank">#${i+1}</span> ${u.username}</span>
@@ -218,7 +211,6 @@ async function updateUI() {
         </div>
     `).join('');
 
-    // Рендер Группы
     const now = new Date();
     document.getElementById('groupList').innerHTML = users.map(u => {
         const isOnline = (now - new Date(u.last_seen)) < 70000;
@@ -246,7 +238,6 @@ async function updateUI() {
     }).join('');
 }
 
-// --- Чат ---
 window.sendMsg = async () => {
     const input = document.getElementById('msgInput');
     if (!input.value.trim() || !currentUser) return;
@@ -261,19 +252,21 @@ async function loadChat() {
     const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(15);
     const display = document.getElementById('chatDisplay');
     if (data && display) {
-        display.innerHTML = data.reverse().map(m => `<div class="msg"><b>${m.user_name}:</b> ${m.text}</div>`).join('');
+        display.innerHTML = data.reverse().map(m => {
+            const isMe = m.user_name === currentUser.user_metadata.full_name;
+            const nameDisplay = isMe ? "Вы" : m.user_name;
+            return `<div class="msg ${isMe ? 'me' : 'other'}"><b>${nameDisplay}:</b> ${m.text}</div>`;
+        }).join('');
         display.scrollTop = display.scrollHeight;
     }
 }
 
-// --- Инициализация ---
 async function init() {
     const { data } = await supabase.auth.getUser();
-    
+
     if (data?.user) {
         currentUser = data.user;
 
-        // Показываем скрытые блоки
         document.getElementById('authSection').style.display = 'none';
         document.getElementById('studySection').style.display = 'block';
         document.getElementById('leaderboardSection').style.display = 'block';
@@ -297,17 +290,16 @@ async function init() {
             elapsedSeconds = Math.floor((new Date() - new Date(prof.study_started_at)) / 1000);
             startMainTimer(new Date());
         }
-        
+
         checkAwards('login');
-        
-        // Циклы обновления
+
         setInterval(() => {
             supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', currentUser.id);
         }, 30000);
-        
+
         setInterval(loadChat, 3000);
         setInterval(updateUI, 5000);
-        
+
         updateUI();
         loadChat();
     }
